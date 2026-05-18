@@ -1,0 +1,12 @@
+Hello,
+
+Your subscription has been confirmed.
+
+Plan: {plan_name}
+Status: Active
+Start date: {starts_at}
+End date: {ends_at}
+
+Thank you for subscribing!
+
+— The Abonnement Team

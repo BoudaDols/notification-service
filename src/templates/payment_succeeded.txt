@@ -1,0 +1,11 @@
+Hello,
+
+Your payment has been processed successfully.
+
+Amount: {amount} {currency}
+Transaction ID: {transaction_id}
+Date: {paid_at}
+
+Your subscription is now active. Thank you!
+
+— The Abonnement Team

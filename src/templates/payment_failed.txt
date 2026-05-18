@@ -1,0 +1,12 @@
+Hello,
+
+Unfortunately, your payment could not be processed.
+
+Amount: {amount}
+Transaction ID: {transaction_id}
+
+Please update your payment details and try again. Your subscription remains in a pending state until payment is confirmed.
+
+If you need help, please contact our support team.
+
+— The Abonnement Team

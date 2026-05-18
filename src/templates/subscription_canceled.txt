@@ -1,0 +1,7 @@
+Hello,
+
+Your subscription to the {plan_name} plan has been canceled.
+
+If this was a mistake or you have any questions, please contact our support team.
+
+— The Abonnement Team
