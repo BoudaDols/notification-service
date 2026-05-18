@@ -1,0 +1,170 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Build & Push to DockerHub
+  # ─────────────────────────────────────────────
+  build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/notification-service:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/notification-service:${{ github.sha }}
+
+  # ─────────────────────────────────────────────
+  # Deploy to Local Kubernetes
+  # ─────────────────────────────────────────────
+  deploy-local:
+    name: Deploy to Local Kubernetes
+    runs-on: self-hosted
+    needs: build
+    if: false  # Disabled — no self-hosted runner configured
+    env:
+      NAMESPACE: default
+
+    steps:
+      - name: Set kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_LOCAL }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Update secrets
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          kubectl create secret generic notification-secrets \
+            --namespace="${NAMESPACE}" \
+            --from-literal=SMTP_USER="${SMTP_USER}" \
+            --from-literal=SMTP_PASS="${SMTP_PASS}" \
+            --from-literal=DEFAULT_RECIPIENT="${{ secrets.DEFAULT_RECIPIENT }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Rollout restart
+        run: kubectl rollout restart deployment/notification-service -n ${{ env.NAMESPACE }}
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/notification-service -n ${{ env.NAMESPACE }} --timeout=120s
+
+  # ─────────────────────────────────────────────
+  # Deploy to AWS EKS
+  # ─────────────────────────────────────────────
+  deploy-aws:
+    name: Deploy to AWS EKS
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      NAMESPACE: default
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ secrets.AWS_REGION }} \
+            --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+      - name: Update secrets
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          kubectl create secret generic notification-secrets \
+            --namespace="${NAMESPACE}" \
+            --from-literal=SMTP_USER="${SMTP_USER}" \
+            --from-literal=SMTP_PASS="${SMTP_PASS}" \
+            --from-literal=DEFAULT_RECIPIENT="${{ secrets.DEFAULT_RECIPIENT }}" \
+            --dry-run=client -o yaml | kubectl apply -f - --validate=false
+
+      - name: Apply manifests
+        run: kubectl apply -f k8s/
+
+      - name: Update image tag
+        env:
+          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/notification-service
+          SHA: ${{ github.sha }}
+        run: |
+          kubectl set image deployment/notification-service \
+            notification-service="${IMAGE}:${SHA}" \
+            -n "${NAMESPACE}"
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/notification-service -n ${{ env.NAMESPACE }} --timeout=300s
+
+  # ─────────────────────────────────────────────
+  # Deploy to Azure AKS
+  # ─────────────────────────────────────────────
+  deploy-azure:
+    name: Deploy to Azure AKS
+    runs-on: ubuntu-latest
+    needs: build
+    if: false  # Disabled — not using Azure yet
+    env:
+      NAMESPACE: default
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Update kubeconfig
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
+
+      - name: Update secrets
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+        run: |
+          kubectl create secret generic notification-secrets \
+            --namespace="${NAMESPACE}" \
+            --from-literal=SMTP_USER="${SMTP_USER}" \
+            --from-literal=SMTP_PASS="${SMTP_PASS}" \
+            --from-literal=DEFAULT_RECIPIENT="${{ secrets.DEFAULT_RECIPIENT }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Update image tag
+        env:
+          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/notification-service
+          SHA: ${{ github.sha }}
+        run: |
+          kubectl set image deployment/notification-service \
+            notification-service="${IMAGE}:${SHA}" \
+            -n "${NAMESPACE}"
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/notification-service -n ${{ env.NAMESPACE }} --timeout=120s

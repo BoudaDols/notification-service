@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint:
+    name: Lint (flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install flake8
+
+      - name: Run flake8
+        run: flake8 src/ app.py --max-line-length=120
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest
+
+      - name: Run tests
+        run: pytest tests/ -v
+        env:
+          KAFKA_ENABLED: "false"
+          SMTP_HOST: "sandbox.smtp.mailtrap.io"
+          SMTP_PORT: "2525"
+          SMTP_USER: "test"
+          SMTP_PASS: "test"
+          MAIL_FROM: "noreply@abonnement.local"
+          DEFAULT_RECIPIENT: "test@example.com"
