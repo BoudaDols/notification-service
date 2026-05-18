@@ -7,10 +7,6 @@ logger = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-# Fallback recipient when user email is not in the event payload.
-# In production the api-gateway should inject the user email into events.
-DEFAULT_RECIPIENT = os.environ.get("DEFAULT_RECIPIENT", "user@example.com")
-
 
 def _load_template(name: str) -> str:
     path = TEMPLATES_DIR / name
@@ -19,7 +15,7 @@ def _load_template(name: str) -> str:
 
 def _get_recipient(data: dict) -> str:
     """Extract user email from event data, fall back to default."""
-    return data.get("user_email") or DEFAULT_RECIPIENT
+    return data.get("user_email") or os.environ.get("DEFAULT_RECIPIENT", "user@example.com")
 
 
 def handle_subscription_created(data: dict, mailer: Mailer) -> None:
