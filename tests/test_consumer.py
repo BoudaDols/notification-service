@@ -1,20 +1,21 @@
 """
 Tests for the consumer message processing logic.
-confluent_kafka is mocked at import time so tests run without librdkafka installed.
+kafka is mocked at import time so tests run without a real Kafka broker.
 """
 import sys
 from unittest.mock import MagicMock, patch
 
-# Mock confluent_kafka before importing the consumer module
-sys.modules["confluent_kafka"] = MagicMock()
+# Mock kafka before importing the consumer module
+sys.modules["kafka"] = MagicMock()
+sys.modules["kafka.errors"] = MagicMock()
 
 from src.consumer import _process_message  # noqa: E402
 
 
 def _make_msg(value: bytes, topic: str = "subscription.changed"):
     msg = MagicMock()
-    msg.value.return_value = value
-    msg.topic.return_value = topic
+    msg.value = value  # kafka-python uses attribute, not method
+    msg.topic = topic
     return msg
 
 

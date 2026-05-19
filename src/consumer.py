@@ -2,7 +2,8 @@ import json
 import logging
 import os
 import threading
-from confluent_kafka import Consumer, KafkaError, KafkaException
+from kafka import KafkaConsumer
+from kafka.errors import KafkaError
 from src.handlers import dispatch
 from src.mailer import Mailer
 
@@ -11,27 +12,28 @@ logger = logging.getLogger(__name__)
 TOPICS = ["subscription.changed", "payment.succeeded", "payment.failed"]
 
 
-def _build_consumer() -> Consumer:
-    return Consumer({
-        "bootstrap.servers": os.environ.get("KAFKA_BROKERS", "kafka:9092"),
-        "group.id": "notification-service",
-        # Start from earliest so no events are missed on first boot
-        "auto.offset.reset": "earliest",
-        "enable.auto.commit": True,
-    })
+def _build_consumer() -> KafkaConsumer:
+    return KafkaConsumer(
+        *TOPICS,
+        bootstrap_servers=os.environ.get("KAFKA_BROKERS", "kafka:9092"),
+        group_id="notification-service",
+        auto_offset_reset="earliest",
+        enable_auto_commit=True,
+        value_deserializer=lambda v: v,  # raw bytes — we decode manually
+    )
 
 
 def _process_message(msg, mailer: Mailer) -> None:
     """Decode a Kafka message and dispatch to the right handler."""
     try:
-        data = json.loads(msg.value().decode("utf-8"))
+        data = json.loads(msg.value.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        logger.warning(f"Could not decode message from {msg.topic()}: {e}")
+        logger.warning(f"Could not decode message from {msg.topic}: {e}")
         return
 
     event = data.get("event")
     if not event:
-        logger.warning(f"Message on {msg.topic()} has no 'event' field — skipping")
+        logger.warning(f"Message on {msg.topic} has no 'event' field — skipping")
         return
 
     logger.info(f"Received event: {event}")
@@ -46,30 +48,18 @@ def _process_message(msg, mailer: Mailer) -> None:
 def run_consumer() -> None:
     """Main consumer loop. Runs indefinitely, meant to run in a thread."""
     mailer = Mailer()
-    consumer = _build_consumer()
-    consumer.subscribe(TOPICS)
     logger.info(f"Kafka consumer started — subscribed to: {TOPICS}")
 
     try:
-        while True:
-            msg = consumer.poll(timeout=1.0)
-
-            if msg is None:
-                continue
-
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    # End of partition — not an error, just no new messages
-                    continue
-                raise KafkaException(msg.error())
-
+        consumer = _build_consumer()
+        for msg in consumer:
             _process_message(msg, mailer)
-
+    except KafkaError as e:
+        logger.error(f"Kafka error: {e}")
     except Exception as e:
         logger.error(f"Consumer loop crashed: {e}")
     finally:
-        consumer.close()
-        logger.info("Kafka consumer closed")
+        logger.info("Kafka consumer stopped")
 
 
 def start_consumer_thread() -> threading.Thread:

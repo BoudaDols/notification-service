@@ -1,8 +1,5 @@
 FROM python:3.12-alpine
 
-# Install build deps needed by confluent-kafka (librdkafka)
-RUN apk add --no-cache gcc musl-dev librdkafka-dev
-
 WORKDIR /app
 
 COPY requirements.txt .
