@@ -99,13 +99,16 @@ flake8 src/ app.py --max-line-length=120
 # 1. Build the image
 docker build -t notification-service:latest .
 
-# 2. Fill in your Mailtrap credentials
+# 2. Load into Kubernetes containerd (Docker Desktop requirement)
+docker save notification-service:latest | docker exec -i $(docker ps -qf "name=desktop-control-plane") ctr -n k8s.io images import -
+
+# 3. Fill in your Mailtrap credentials
 # Edit k8s/local/secret.yaml
 
-# 3. Deploy
+# 4. Deploy
 kubectl apply -f k8s/local/
 
-# 4. Verify
+# 5. Verify
 kubectl get pods
 kubectl logs -l app=notification-service
 ```

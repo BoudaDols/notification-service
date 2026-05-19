@@ -1,0 +1,10 @@
+Hello {user_name},
+
+A successful login was detected on your account.
+
+Time: {logged_in_at}
+IP address: {ip}
+
+If this wasn't you, please change your password immediately.
+
+— The Abonnement Team

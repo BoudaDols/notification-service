@@ -1,0 +1,11 @@
+Hello,
+
+A failed login attempt was detected on your account.
+
+Email used: {email}
+Time: {failed_at}
+IP address: {ip}
+
+If this wasn't you, we recommend changing your password as a precaution.
+
+— The Abonnement Team

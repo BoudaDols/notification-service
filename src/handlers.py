@@ -72,12 +72,58 @@ def handle_payment_failed(data: dict, mailer: Mailer) -> None:
     )
 
 
+def handle_user_registered(data: dict, mailer: Mailer) -> None:
+    recipient = _get_recipient(data)
+    body = _load_template("user_registered.txt").format(
+        user_name=data.get("user_name", "there"),
+        registered_at=data.get("registered_at", "N/A"),
+    )
+    mailer.send(
+        to=recipient,
+        subject="Welcome — your account is ready",
+        body=body,
+    )
+
+
+def handle_user_login_success(data: dict, mailer: Mailer) -> None:
+    recipient = _get_recipient(data)
+    body = _load_template("user_login_success.txt").format(
+        user_name=data.get("user_name", "there"),
+        logged_in_at=data.get("logged_in_at", "N/A"),
+        ip=data.get("ip", "unknown"),
+    )
+    mailer.send(
+        to=recipient,
+        subject="New login on your account",
+        body=body,
+    )
+
+
+def handle_user_login_failed(data: dict, mailer: Mailer) -> None:
+    # For failed logins, the user_email might not be in the payload
+    # (since the user might not exist). Use the attempted email instead.
+    recipient = data.get("user_email") or data.get("email") or os.environ.get("DEFAULT_RECIPIENT", "user@example.com")
+    body = _load_template("user_login_failed.txt").format(
+        email=data.get("email", "N/A"),
+        failed_at=data.get("failed_at", "N/A"),
+        ip=data.get("ip", "unknown"),
+    )
+    mailer.send(
+        to=recipient,
+        subject="Failed login attempt on your account",
+        body=body,
+    )
+
+
 # Route event type to handler function
 EVENT_HANDLERS = {
     "subscription.created": handle_subscription_created,
     "subscription.canceled": handle_subscription_canceled,
     "payment.succeeded": handle_payment_succeeded,
     "payment.failed": handle_payment_failed,
+    "user.registered": handle_user_registered,
+    "user.login_success": handle_user_login_success,
+    "user.login_failed": handle_user_login_failed,
 }
 
 

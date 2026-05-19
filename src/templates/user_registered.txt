@@ -1,0 +1,9 @@
+Hello {user_name},
+
+Welcome! Your account has been created successfully.
+
+You can now log in and start using our services.
+
+Registration date: {registered_at}
+
+— The Abonnement Team

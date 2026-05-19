@@ -9,7 +9,8 @@ from src.mailer import Mailer
 
 logger = logging.getLogger(__name__)
 
-TOPICS = ["subscription.changed", "payment.succeeded", "payment.failed"]
+TOPICS = ["subscription.changed", "payment.succeeded", "payment.failed",
+          "user.registered", "user.login"]
 
 
 def _build_consumer() -> KafkaConsumer:
@@ -20,6 +21,7 @@ def _build_consumer() -> KafkaConsumer:
         auto_offset_reset="earliest",
         enable_auto_commit=True,
         value_deserializer=lambda v: v,  # raw bytes — we decode manually
+        api_version=(2, 5, 0),  # Skip version probe — compatible with Kafka 3.7
     )
 
 

@@ -85,6 +85,50 @@ class TestDispatch:
         call_kwargs = mailer.send.call_args[1]
         assert call_kwargs["to"] == "fallback@example.com"
 
+    def test_user_registered_sends_welcome_email(self, mailer):
+        data = {
+            "event": "user.registered",
+            "user_email": "alice@example.com",
+            "user_name": "Alice",
+            "registered_at": "2026-05-18T10:00:00",
+        }
+        dispatch("user.registered", data, mailer)
+        mailer.send.assert_called_once()
+        call_kwargs = mailer.send.call_args[1]
+        assert call_kwargs["to"] == "alice@example.com"
+        assert "welcome" in call_kwargs["subject"].lower()
+        assert "Alice" in call_kwargs["body"]
+
+    def test_user_login_success_sends_email(self, mailer):
+        data = {
+            "event": "user.login_success",
+            "user_email": "bob@example.com",
+            "user_name": "Bob",
+            "ip": "192.168.1.1",
+            "logged_in_at": "2026-05-18T11:00:00",
+        }
+        dispatch("user.login_success", data, mailer)
+        mailer.send.assert_called_once()
+        call_kwargs = mailer.send.call_args[1]
+        assert call_kwargs["to"] == "bob@example.com"
+        assert "login" in call_kwargs["subject"].lower()
+        assert "192.168.1.1" in call_kwargs["body"]
+
+    def test_user_login_failed_sends_alert(self, mailer):
+        data = {
+            "event": "user.login_failed",
+            "email": "hacker@example.com",
+            "ip": "10.0.0.1",
+            "failed_at": "2026-05-18T12:00:00",
+        }
+        with patch.dict("os.environ", {"DEFAULT_RECIPIENT": "admin@example.com"}):
+            dispatch("user.login_failed", data, mailer)
+        mailer.send.assert_called_once()
+        call_kwargs = mailer.send.call_args[1]
+        assert call_kwargs["to"] == "hacker@example.com"
+        assert "failed" in call_kwargs["subject"].lower()
+        assert "10.0.0.1" in call_kwargs["body"]
+
 
 class TestHealthEndpoint:
     def test_health_returns_ok(self):
