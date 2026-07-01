@@ -59,6 +59,9 @@ notification-service/
 
 ## Getting Started
 
+### Consumers
+This service has no inbound API consumers. It only consumes Kafka events published by other services (`abonnement`, `api-gateway`). The frontend does not interact with it directly.
+
 ### Requirements
 - Python 3.12+
 - A running Kafka broker
